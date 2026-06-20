@@ -27,7 +27,7 @@ export default function App() {
   const loadTopologyRef = useRef<() => void>(() => {});
 
   const loadTopology = useCallback(() => {
-    axios.get('http://localhost:8000/nodes')
+    axios.get('https://telecom-digital-twin-1.onrender.com/nodes')
       .then(response => {
         const formattedNodes = response.data.map((n: DbNode) => ({
           id: n.id, 
@@ -47,7 +47,7 @@ export default function App() {
         setNodes(formattedNodes);
       }).catch(err => console.error("Erreur chargement noeuds:", err));
 
-    axios.get('http://localhost:8000/edges')
+    axios.get('https://telecom-digital-twin-1.onrender.com/edges')
       .then(response => {
         const formattedEdges = response.data.map((e: DbEdge) => {
           const isHighlighted = highlightedEdges.includes(e.id);
@@ -72,7 +72,7 @@ export default function App() {
   useEffect(() => {
     loadTopologyRef.current();
 
-    const ws = new WebSocket('ws://localhost:8000/ws/network');
+    const ws = new WebSocket('https://telecom-digital-twin-1.onrender.com/ws/network');
 
     ws.onmessage = (event) => {
       try {
@@ -98,7 +98,7 @@ export default function App() {
 
   const handleCalculateRoute = () => {
     if (!sourceNode || !targetNode) return;
-    axios.get(`http://localhost:8000/network/shortest-path?source=${encodeURIComponent(sourceNode)}&target=${encodeURIComponent(targetNode)}`)
+    axios.get(`https://telecom-digital-twin-1.onrender.com /network/shortest-path?source=${encodeURIComponent(sourceNode)}&target=${encodeURIComponent(targetNode)}`)
       .then(response => {
         const pathEdges: string[] = response.data.path_edges;
         setHighlightedEdges(pathEdges);
@@ -123,7 +123,7 @@ export default function App() {
     if (params.source === params.target) return; 
     
     const newEdgeId = `e-${params.source}-${params.target}`;
-    axios.post('http://localhost:8000/edges', { id: newEdgeId, source: params.source, target: params.target, load: 0.10 })
+    axios.post('https://telecom-digital-twin-1.onrender.com/edges', { id: newEdgeId, source: params.source, target: params.target, load: 0.10 })
       .then(() => loadTopologyRef.current())
       .catch(err => console.error(err));
   }, []);
@@ -132,7 +132,7 @@ export default function App() {
     if (!newNodeLabel.trim()) return;
     const nodeId = newNodeLabel.trim(); 
 
-    axios.post('http://localhost:8000/nodes', { id: nodeId, position_x: 300, position_y: 200 })
+    axios.post('https://telecom-digital-twin-1.onrender.com/nodes', { id: nodeId, position_x: 300, position_y: 200 })
       .then(() => {
         setNewNodeLabel('');
         loadTopologyRef.current();
@@ -142,7 +142,7 @@ export default function App() {
 
   const handleDeleteNode = () => {
     if (!selectedNodeId) return;
-    axios.delete(`http://localhost:8000/nodes/${encodeURIComponent(selectedNodeId)}`)
+    axios.delete(`https://telecom-digital-twin-1.onrender.com/nodes/${encodeURIComponent(selectedNodeId)}`)
       .then(() => {
         setSelectedNodeId(null);
         loadTopologyRef.current();
@@ -157,7 +157,7 @@ export default function App() {
   const handlePurgeTout = () => {
     if (window.confirm("Voulez-vous vider tous les équipements récalcitrants de l'écran ?")) {
       nodes.forEach(node => {
-        axios.delete(`http://localhost:8000/nodes/${encodeURIComponent(node.id)}`).catch(() => {});
+        axios.delete(`https://telecom-digital-twin-1.onrender.com/nodes/${encodeURIComponent(node.id)}`).catch(() => {});
       });
       setNodes([]);
       setEdges([]);
@@ -170,7 +170,7 @@ export default function App() {
     const currentLoad = edge.data?.load ?? 0;
     const newLoad = currentLoad < 0.8 ? 0.95 : 0.10;
 
-    axios.put(`http://localhost:8000/edges/${edge.id}/load`, {
+    axios.put(`https://telecom-digital-twin-1.onrender.com/edges/${edge.id}/load`, {
       id: edge.id, source: edge.source, target: edge.target, load: newLoad
     })
     .then(() => {
@@ -192,7 +192,7 @@ export default function App() {
 
   const onEdgesDelete = useCallback((edgesToDelete: Edge[]) => {
     edgesToDelete.forEach((edge) => {
-      axios.delete(`http://localhost:8000/edges/${edge.id}`)
+      axios.delete(`https://telecom-digital-twin-1.onrender.com/edges/${edge.id}`)
         .then(() => {
           setHighlightedEdges(prev => prev.filter(id => id !== edge.id));
           setSelectedEdgeId(null);
@@ -204,7 +204,7 @@ export default function App() {
 
   const handleForceDeleteEdge = () => {
     if (!selectedEdgeId) return;
-    axios.delete(`http://localhost:8000/edges/${selectedEdgeId}`)
+    axios.delete(`https://telecom-digital-twin-1.onrender.com/edges/${selectedEdgeId}`)
       .then(() => {
         setSelectedEdgeId(null);
         loadTopologyRef.current();
@@ -212,7 +212,7 @@ export default function App() {
   };
 
   const onNodeDoubleClick = useCallback((_event: React.MouseEvent, node: Node) => {
-    axios.put(`http://localhost:8000/nodes/${encodeURIComponent(node.id)}/status`)
+    axios.put(`https://telecom-digital-twin-1.onrender.com/nodes/${encodeURIComponent(node.id)}/status`)
       .then(() => {
         loadTopologyRef.current();
         if (sourceNode && targetNode) handleCalculateRoute();
@@ -221,7 +221,7 @@ export default function App() {
   }, [sourceNode, targetNode]);
 
   const onNodeDragStop = useCallback((_event: React.MouseEvent, node: Node) => {
-    axios.put(`http://localhost:8000/nodes/${encodeURIComponent(node.id)}`, { position_x: node.position.x, position_y: node.position.y })
+    axios.put(`https://telecom-digital-twin-1.onrender.com/nodes/${encodeURIComponent(node.id)}`, { position_x: node.position.x, position_y: node.position.y })
       .catch(err => console.error(err));
   }, []);
 
