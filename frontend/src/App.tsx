@@ -72,7 +72,6 @@ export default function App() {
   useEffect(() => {
     loadTopologyRef.current();
 
-    // 🌟 CORRECTION : Utilisation du protocole sécurisé wss:// pour le WebSocket distant
     const ws = new WebSocket('wss://telecom-digital-twin-1.onrender.com/ws/network');
 
     ws.onmessage = (event) => {
@@ -99,7 +98,6 @@ export default function App() {
 
   const handleCalculateRoute = () => {
     if (!sourceNode || !targetNode) return;
-    // 🌟 CORRECTION : Suppression de l'espace vide avant /network
     axios.get(`https://telecom-digital-twin-1.onrender.com/network/shortest-path?source=${encodeURIComponent(sourceNode)}&target=${encodeURIComponent(targetNode)}`)
       .then(response => {
         const pathEdges: string[] = response.data.path_edges;
