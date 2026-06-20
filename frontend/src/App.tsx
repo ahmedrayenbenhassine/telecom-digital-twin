@@ -27,7 +27,7 @@ export default function App() {
   const loadTopologyRef = useRef<() => void>(() => {});
 
   const loadTopology = useCallback(() => {
-    axios.get('https://telecom-digital-twin-1.onrender.com/nodes')
+    axios.get('http://localhost:8000/nodes')
       .then(response => {
         const formattedNodes = response.data.map((n: DbNode) => ({
           id: n.id, 
@@ -47,7 +47,7 @@ export default function App() {
         setNodes(formattedNodes);
       }).catch(err => console.error("Erreur chargement noeuds:", err));
 
-    axios.get('https://telecom-digital-twin-1.onrender.com/edges')
+    axios.get('http://localhost:8000/edges')
       .then(response => {
         const formattedEdges = response.data.map((e: DbEdge) => {
           const isHighlighted = highlightedEdges.includes(e.id);
@@ -72,7 +72,7 @@ export default function App() {
   useEffect(() => {
     loadTopologyRef.current();
 
-    const ws = new WebSocket('wss://telecom-digital-twin-1.onrender.com/ws/network');
+    const ws = new WebSocket('ws://localhost:8000/ws/network');
 
     ws.onmessage = (event) => {
       try {
@@ -98,15 +98,14 @@ export default function App() {
 
   const handleCalculateRoute = () => {
     if (!sourceNode || !targetNode) return;
-    axios.get(`https://telecom-digital-twin-1.onrender.com/network/shortest-path?source=${encodeURIComponent(sourceNode)}&target=${encodeURIComponent(targetNode)}`)
+    axios.get(`http://localhost:8000/network/shortest-path?source=${encodeURIComponent(sourceNode)}&target=${encodeURIComponent(targetNode)}`)
       .then(response => {
-        const pathEdges: string[] = response.data.path_edges;
-        setHighlightedEdges(pathEdges);
-        setEdges(prevEdges => prevEdges.map((edge: Edge) => ({
+        setHighlightedEdges(response.data.path_edges);
+        setEdges(prevEdges => prevEdges.map(edge => ({
           ...edge,
           style: {
-            stroke: pathEdges.includes(edge.id) ? '#2ecc71' : ((edge.data?.load ?? 0) > 0.8 ? '#e74c3c' : '#007bff'),
-            strokeWidth: pathEdges.includes(edge.id) ? 4 : 2
+            stroke: response.data.path_edges.includes(edge.id) ? '#2ecc71' : (edge.data?.load > 0.8 ? '#e74c3c' : '#007bff'),
+            strokeWidth: response.data.path_edges.includes(edge.id) ? 4 : 2
           }
         })));
       })
@@ -123,7 +122,7 @@ export default function App() {
     if (params.source === params.target) return; 
     
     const newEdgeId = `e-${params.source}-${params.target}`;
-    axios.post('https://telecom-digital-twin-1.onrender.com/edges', { id: newEdgeId, source: params.source, target: params.target, load: 0.10 })
+    axios.post('http://localhost:8000/edges', { id: newEdgeId, source: params.source, target: params.target, load: 0.10 })
       .then(() => loadTopologyRef.current())
       .catch(err => console.error(err));
   }, []);
@@ -132,7 +131,7 @@ export default function App() {
     if (!newNodeLabel.trim()) return;
     const nodeId = newNodeLabel.trim(); 
 
-    axios.post('https://telecom-digital-twin-1.onrender.com/nodes', { id: nodeId, position_x: 300, position_y: 200 })
+    axios.post('http://localhost:8000/nodes', { id: nodeId, position_x: 300, position_y: 200 })
       .then(() => {
         setNewNodeLabel('');
         loadTopologyRef.current();
@@ -142,7 +141,7 @@ export default function App() {
 
   const handleDeleteNode = () => {
     if (!selectedNodeId) return;
-    axios.delete(`https://telecom-digital-twin-1.onrender.com/nodes/${encodeURIComponent(selectedNodeId)}`)
+    axios.delete(`http://localhost:8000/nodes/${encodeURIComponent(selectedNodeId)}`)
       .then(() => {
         setSelectedNodeId(null);
         loadTopologyRef.current();
@@ -157,7 +156,7 @@ export default function App() {
   const handlePurgeTout = () => {
     if (window.confirm("Voulez-vous vider tous les équipements récalcitrants de l'écran ?")) {
       nodes.forEach(node => {
-        axios.delete(`https://telecom-digital-twin-1.onrender.com/nodes/${encodeURIComponent(node.id)}`).catch(() => {});
+        axios.delete(`http://localhost:8000/nodes/${encodeURIComponent(node.id)}`).catch(() => {});
       });
       setNodes([]);
       setEdges([]);
@@ -166,11 +165,12 @@ export default function App() {
     }
   };
 
-  const onEdgeDoubleClick = useCallback((_event: React.MouseEvent, edge: Edge) => {
+  const onEdgeDoubleClick = useCallback((event: React.MouseEvent, edge: Edge) => {
+    event.stopPropagation();
     const currentLoad = edge.data?.load ?? 0;
     const newLoad = currentLoad < 0.8 ? 0.95 : 0.10;
 
-    axios.put(`https://telecom-digital-twin-1.onrender.com/edges/${edge.id}/load`, {
+    axios.put(`http://localhost:8000/edges/${edge.id}/load`, {
       id: edge.id, source: edge.source, target: edge.target, load: newLoad
     })
     .then(() => {
@@ -180,19 +180,19 @@ export default function App() {
     .catch(err => console.error(err));
   }, [sourceNode, targetNode]);
 
-  const onEdgeClick = useCallback((_event: React.MouseEvent, edge: Edge) => {
+  const onEdgeClick = useCallback((event: React.MouseEvent, edge: Edge) => {
     setSelectedEdgeId(edge.id);
     setSelectedNodeId(null);
   }, []);
 
-  const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
+  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     setSelectedNodeId(node.id);
     setSelectedEdgeId(null);
   }, []);
 
   const onEdgesDelete = useCallback((edgesToDelete: Edge[]) => {
     edgesToDelete.forEach((edge) => {
-      axios.delete(`https://telecom-digital-twin-1.onrender.com/edges/${edge.id}`)
+      axios.delete(`http://localhost:8000/edges/${edge.id}`)
         .then(() => {
           setHighlightedEdges(prev => prev.filter(id => id !== edge.id));
           setSelectedEdgeId(null);
@@ -204,15 +204,16 @@ export default function App() {
 
   const handleForceDeleteEdge = () => {
     if (!selectedEdgeId) return;
-    axios.delete(`https://telecom-digital-twin-1.onrender.com/edges/${selectedEdgeId}`)
+    axios.delete(`http://localhost:8000/edges/${selectedEdgeId}`)
       .then(() => {
         setSelectedEdgeId(null);
         loadTopologyRef.current();
       });
   };
 
-  const onNodeDoubleClick = useCallback((_event: React.MouseEvent, node: Node) => {
-    axios.put(`https://telecom-digital-twin-1.onrender.com/nodes/${encodeURIComponent(node.id)}/status`)
+  const onNodeDoubleClick = useCallback((event: React.MouseEvent, node: Node) => {
+    event.stopPropagation();
+    axios.put(`http://localhost:8000/nodes/${encodeURIComponent(node.id)}/status`)
       .then(() => {
         loadTopologyRef.current();
         if (sourceNode && targetNode) handleCalculateRoute();
@@ -220,8 +221,8 @@ export default function App() {
       .catch(err => console.error(err));
   }, [sourceNode, targetNode]);
 
-  const onNodeDragStop = useCallback((_event: React.MouseEvent, node: Node) => {
-    axios.put(`https://telecom-digital-twin-1.onrender.com/nodes/${encodeURIComponent(node.id)}`, { position_x: node.position.x, position_y: node.position.y })
+  const onNodeDragStop = useCallback((event: React.MouseEvent, node: Node) => {
+    axios.put(`http://localhost:8000/nodes/${encodeURIComponent(node.id)}`, { position_x: node.position.x, position_y: node.position.y })
       .catch(err => console.error(err));
   }, []);
 
@@ -242,7 +243,7 @@ export default function App() {
             style={{ padding: '5px', borderRadius: '4px', border: '1px solid #ccc' }}
           >
             <option value="">Source...</option>
-            {nodes.map((n: Node) => <option key={n.id} value={n.id}>{String(n.data?.label || n.id)}</option>)}
+            {nodes.map(n => <option key={n.id} value={n.id}>{n.data?.label || n.id}</option>)}
           </select>
           <select 
             value={targetNode} 
@@ -250,7 +251,7 @@ export default function App() {
             style={{ padding: '5px', borderRadius: '4px', border: '1px solid #ccc' }}
           >
             <option value="">Cible...</option>
-            {nodes.map((n: Node) => <option key={n.id} value={n.id}>{String(n.data?.label || n.id)}</option>)}
+            {nodes.map(n => <option key={n.id} value={n.id}>{n.data?.label || n.id}</option>)}
           </select>
           <div style={{ display: 'flex', gap: '5px' }}>
             <button onClick={handleCalculateRoute} style={{ background: '#2ecc71', color: 'white', border: 'none', padding: '8px', borderRadius: '4px', cursor: 'pointer', flex: 1, fontWeight: 'bold' }}>Calculer</button>
